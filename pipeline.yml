@@ -121,6 +121,7 @@ jobs:
       TF_VAR_env_name: ((env_name))
       TF_VAR_dns_suffix: ((dns_suffix))
       TF_VAR_ops_manager_instance_type: ((ops_manager_instance_type))
+      TF_VAR_hosted_zone: ((hosted_zone))
     config:
       platform: linux
       image_resource:
@@ -337,6 +338,7 @@ jobs:
           tag: 1.0.20
       inputs:
       - name: terraform-state
+      - name: template
       - name: pcf-pipelines
       - name: pks
       run:
@@ -389,7 +391,49 @@ jobs:
           set -euo pipefail
           export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')          
           ./pcf-pipelines/tasks/apply-changes/task.sh
-
+- name: show-next-instructions
+  build_logs_to_retain: 5
+  plan:
+  - aggregate:
+    - get: terraform-state
+      passed:
+      - deploy-pks
+      trigger: true
+    - get: template
+  - task: show-next-instructions
+    params:
+      OPS_MGR_USR: ((ops_mgr_usr))
+      OPS_MGR_PWD: ((ops_mgr_pwd))
+      OPSMAN_CLIENT_ID: ""
+      OPSMAN_CLIENT_SECRET: ""
+      PRODUCT_NAME: "cf"
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pcfnorm/rootfs
+          tag: 1.0.20
+      inputs:
+      - name: terraform-state
+      - name: template
+      run:
+        path: bash
+        args: 
+        - -c
+        - |
+          set -eo pipefail 
+          cp /usr/local/bin/om-linux /usr/local/bin/om
+          export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          cd template
+          cp ../terraform-state/terraform.tfstate ./
+          cat <<EOF > ./om/common.sh
+          export TF_DIR=$(pwd)
+          export OPSMAN_DOMAIN_OR_IP_ADDRESS=${OPSMAN_DOMAIN_OR_IP_ADDRESS}
+          export OPS_MGR_USR=${OPS_MGR_USR}
+          export OPS_MGR_PWD=${OPS_MGR_PWD}
+          EOF
+          ./om/show-next-instructions.sh
 - name: wipe-env
   build_logs_to_retain: 5
   serial_groups: [terraform]
@@ -441,6 +485,7 @@ jobs:
       TF_VAR_env_name: ((env_name))
       TF_VAR_dns_suffix: ((dns_suffix))
       TF_VAR_ops_manager_instance_type: ((ops_manager_instance_type))
+      TF_VAR_hosted_zone: ((hosted_zone))
     config:
       platform: linux
       image_resource:
@@ -502,6 +547,7 @@ jobs:
           cat << KEY > opsman.pem
           ${OPS_MANAGER_SSH_PRIVATE_KEY}
           KEY
+          chmod 600 opsman.pem
           ssh -i opsman.pem -o "StrictHostKeyChecking=no" -l ubuntu ${OPSMAN_DOMAIN_OR_IP_ADDRESS}
           EOF
 - name: configure-bosh-cli
