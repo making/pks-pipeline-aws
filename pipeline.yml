@@ -31,7 +31,7 @@ resources:
   type: git
   source:
     uri: https://github.com/pivotal-cf/pcf-pipelines.git
-    tag_filter: v0.23.6
+    tag_filter: v0.23.8
 - name: pivnet-opsmgr
   type: pivnet
   source:
