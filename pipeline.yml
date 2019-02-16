@@ -486,8 +486,9 @@ jobs:
     - get: pcf-pipelines
   - task: delete-installation
     params:
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
+      OM_USERNAME: ((ops_mgr_usr))
+      OM_PASSWORD: ((ops_mgr_pwd))
+      OM_SKIP_SSL_VALIDATION: true
     config:
       platform: linux
       image_resource:
@@ -504,15 +505,8 @@ jobs:
         - -c
         - |
           set +e  
-          ln -s /usr/local/bin/om /usr/local/bin/om-linux
-          OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          om-linux \
-            --target https://$OPSMAN_DOMAIN_OR_IP_ADDRESS \
-            --skip-ssl-validation \
-            --username "$OPS_MGR_USR" \
-            --password "$OPS_MGR_PWD" \
-            --request-timeout 60 \
-            delete-installation || true
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          om -r 60 delete-installation || true
   - task: terraform-destory
     params:
       TF_VAR_region: ((aws_region))
