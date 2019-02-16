@@ -1,5 +1,81 @@
 #!/bin/bash
-set -eo pipefail 
+set -eo pipefail
+
+export ACCESS_KEY_ID=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_iam_user_access_key.value')
+export SECRET_ACCESS_KEY=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_iam_user_secret_key.value')
+export SECURITY_GROUP=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.vms_security_group_id.value')
+export KEY_PAIR_NAME=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_ssh_public_key_name.value')
+export SSH_PRIVATE_KEY=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_ssh_private_key.value' | sed 's/^/  /')
+export REGION=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.region.value')
+## Director
+export OPS_MANAGER_BUCKET=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_bucket.value')
+export OM_TRUSTED_CERTS=$(echo "$OM_TRUSTED_CERTS" | sed 's/^/  /')
+## Networks
+export AVAILABILITY_ZONES=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.azs.value | map({name: .})' | tr -d '\n' | tr -d '"')
+export INFRASTRUCTURE_NETWORK_NAME=pks-infrastructure
+export INFRASTRUCTURE_IAAS_IDENTIFIER_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_ids.value[0]')
+export INFRASTRUCTURE_NETWORK_CIDR_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_cidrs.value[0]')
+export INFRASTRUCTURE_RESERVED_IP_RANGES_0=$(echo $INFRASTRUCTURE_NETWORK_CIDR_0 | sed 's|0/28$|0|g')-$(echo $INFRASTRUCTURE_NETWORK_CIDR_0 | sed 's|0/28$|4|g')
+export INFRASTRUCTURE_DNS_0=10.0.0.2
+export INFRASTRUCTURE_GATEWAY_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_gateways.value[0]')
+export INFRASTRUCTURE_AVAILABILITY_ZONES_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_availability_zones.value[0]')
+export INFRASTRUCTURE_IAAS_IDENTIFIER_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_ids.value[1]')
+export INFRASTRUCTURE_NETWORK_CIDR_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_cidrs.value[1]')
+export INFRASTRUCTURE_RESERVED_IP_RANGES_1=$(echo $INFRASTRUCTURE_NETWORK_CIDR_1 | sed 's|16/28$|16|g')-$(echo $INFRASTRUCTURE_NETWORK_CIDR_1 | sed 's|16/28$|20|g')
+export INFRASTRUCTURE_DNS_1=10.0.0.2
+export INFRASTRUCTURE_GATEWAY_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_gateways.value[1]')
+export INFRASTRUCTURE_AVAILABILITY_ZONES_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_availability_zones.value[1]')
+export INFRASTRUCTURE_IAAS_IDENTIFIER_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_ids.value[2]')
+export INFRASTRUCTURE_NETWORK_CIDR_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_cidrs.value[2]')
+export INFRASTRUCTURE_RESERVED_IP_RANGES_2=$(echo $INFRASTRUCTURE_NETWORK_CIDR_2 | sed 's|32/28$|32|g')-$(echo $INFRASTRUCTURE_NETWORK_CIDR_2 | sed 's|32/28$|36|g')
+export INFRASTRUCTURE_DNS_2=10.0.0.2
+export INFRASTRUCTURE_GATEWAY_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_gateways.value[2]')
+export INFRASTRUCTURE_AVAILABILITY_ZONES_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.infrastructure_subnet_availability_zones.value[2]')
+export DEPLOYMENT_NETWORK_NAME=pks-main
+export DEPLOYMENT_IAAS_IDENTIFIER_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_ids.value[0]')
+export DEPLOYMENT_NETWORK_CIDR_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_cidrs.value[0]')
+export DEPLOYMENT_RESERVED_IP_RANGES_0=$(echo $DEPLOYMENT_NETWORK_CIDR_0 | sed 's|0/24$|0|g')-$(echo $DEPLOYMENT_NETWORK_CIDR_0 | sed 's|0/24$|4|g')
+export DEPLOYMENT_DNS_0=10.0.0.2
+export DEPLOYMENT_GATEWAY_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_gateways.value[0]')
+export DEPLOYMENT_AVAILABILITY_ZONES_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_availability_zones.value[0]')
+export DEPLOYMENT_IAAS_IDENTIFIER_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_ids.value[1]')
+export DEPLOYMENT_NETWORK_CIDR_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_cidrs.value[1]')
+export DEPLOYMENT_RESERVED_IP_RANGES_1=$(echo $DEPLOYMENT_NETWORK_CIDR_1 | sed 's|0/24$|0|g')-$(echo $DEPLOYMENT_NETWORK_CIDR_1 | sed 's|0/24$|4|g')
+export DEPLOYMENT_DNS_1=10.0.0.2
+export DEPLOYMENT_GATEWAY_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_gateways.value[1]')
+export DEPLOYMENT_AVAILABILITY_ZONES_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_availability_zones.value[1]')
+export DEPLOYMENT_IAAS_IDENTIFIER_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_ids.value[2]')
+export DEPLOYMENT_NETWORK_CIDR_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_cidrs.value[2]')
+export DEPLOYMENT_RESERVED_IP_RANGES_2=$(echo $DEPLOYMENT_NETWORK_CIDR_2 | sed 's|0/24$|0|g')-$(echo $DEPLOYMENT_NETWORK_CIDR_2 | sed 's|0/24$|4|g')
+export DEPLOYMENT_DNS_2=10.0.0.2
+export DEPLOYMENT_GATEWAY_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_gateways.value[2]')
+export DEPLOYMENT_AVAILABILITY_ZONES_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_subnet_availability_zones.value[2]')
+export SERVICES_NETWORK_NAME=pks-services
+export SERVICES_IAAS_IDENTIFIER_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_ids.value[0]')
+export SERVICES_NETWORK_CIDR_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_cidrs.value[0]')
+export SERVICES_RESERVED_IP_RANGES_0=$(echo $SERVICES_NETWORK_CIDR_0 | sed 's|0/24$|0|g')-$(echo $SERVICES_NETWORK_CIDR_0 | sed 's|0/24$|3|g')
+export SERVICES_DNS_0=10.0.0.2
+export SERVICES_GATEWAY_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_gateways.value[0]')
+export SERVICES_AVAILABILITY_ZONES_0=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_availability_zones.value[0]')
+export SERVICES_IAAS_IDENTIFIER_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_ids.value[1]')
+export SERVICES_NETWORK_CIDR_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_cidrs.value[1]')
+export SERVICES_RESERVED_IP_RANGES_1=$(echo $SERVICES_NETWORK_CIDR_1 | sed 's|0/24$|0|g')-$(echo $SERVICES_NETWORK_CIDR_1 | sed 's|0/24$|3|g')
+export SERVICES_DNS_1=10.0.0.2
+export SERVICES_GATEWAY_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_gateways.value[1]')
+export SERVICES_AVAILABILITY_ZONES_1=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_availability_zones.value[1]')
+export SERVICES_IAAS_IDENTIFIER_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_ids.value[2]')
+export SERVICES_NETWORK_CIDR_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_cidrs.value[2]')
+export SERVICES_RESERVED_IP_RANGES_2=$(echo $SERVICES_NETWORK_CIDR_2 | sed 's|0/24$|0|g')-$(echo $SERVICES_NETWORK_CIDR_2 | sed 's|0/24$|3|g')
+export SERVICES_DNS_2=10.0.0.2
+export SERVICES_GATEWAY_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_gateways.value[2]')
+export SERVICES_AVAILABILITY_ZONES_2=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.services_subnet_availability_zones.value[2]')
+export SINGLETON_AVAILABILITY_NETWORK=$INFRASTRUCTURE_NETWORK_NAME
+export SINGLETON_AVAILABILITY_ZONE=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.azs.value[0]')
+## vm extensions
+export PKS_API_8443=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[4].resources["aws_lb_target_group.pks_api_8443"].primary.attributes.name')
+export PKS_API_9021=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[4].resources["aws_lb_target_group.pks_api_9021"].primary.attributes.name')
+export PKS_API_LB_SECURITY_GROUP=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[4].resources["aws_security_group.pks_api_lb_security_group"].primary.attributes.name')
+export VMS_SECURITY_GROUP=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[2].resources["aws_security_group.vms_security_group"].primary.attributes.name')
 
 cat <<EOF > vars.yml
 access_key_id: ${ACCESS_KEY_ID}
