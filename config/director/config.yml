@@ -142,6 +142,7 @@ director:
   instance_type:
     id: automatic
   internet_connected: false
+# VM Extensions
 vmextensions-configuration:
 - name: pks-api-lb
 cloud_properties:
