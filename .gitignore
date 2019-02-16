@@ -1,3 +1,4 @@
 *.pem
 credentials.yml
 cert
+ssh-opsman.sh
