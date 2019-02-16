@@ -148,7 +148,7 @@ vmextensions-configuration:
 cloud_properties:
   lb_target_groups:
   - ((pks_api_8443))
-  - ((pks_api_9021))
+  #- ((pks_api_9021))
 - name: pks-api-lb-security-groups
 cloud_properties:
   security_groups:
