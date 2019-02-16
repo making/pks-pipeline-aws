@@ -23,21 +23,7 @@ product-properties:
   .properties.plan1_selector.active.errand_vm_type:
     value: t2.small
   .properties.plan1_selector.active.addons_spec:
-    value: |
-      apiVersion: storage.k8s.io/v1
-      kind: StorageClass
-      metadata:
-        name: standard
-        annotations:
-          storageclass.beta.kubernetes.io/is-default-class: "true"
-        labels:
-          kubernetes.io/cluster-service: "true"
-          addonmanager.kubernetes.io/mode: EnsureExists
-      provisioner: kubernetes.io/aws-ebs
-      allowVolumeExpansion: true
-      parameters:
-        type: gp2
-      ---
+    value: ((addons_spec))
   .properties.plan1_selector.active.allow_privileged_containers:
     value: 1
   .properties.plan2_selector:
@@ -57,21 +43,7 @@ product-properties:
   .properties.plan2_selector.active.errand_vm_type:
     value: t2.small
   .properties.plan2_selector.active.addons_spec:
-    value: |
-      apiVersion: storage.k8s.io/v1
-      kind: StorageClass
-      metadata:
-        name: standard
-        annotations:
-          storageclass.beta.kubernetes.io/is-default-class: "true"
-        labels:
-          kubernetes.io/cluster-service: "true"
-          addonmanager.kubernetes.io/mode: EnsureExists
-      provisioner: kubernetes.io/aws-ebs
-      allowVolumeExpansion: true
-      parameters:
-        type: gp2
-      ---
+    value: ((addons_spec))
   .properties.plan2_selector.active.allow_privileged_containers:
     value: 1
   .properties.plan3_selector:
@@ -83,7 +55,7 @@ product-properties:
   .properties.cloud_provider.aws.iam_instance_profile_worker:
     value: ((instance_profile_worker))
   .properties.telemetry_selector:
-    value: enabled
+    value: disabled
   .properties.uaa_oidc:
     value: true
 network-properties:
