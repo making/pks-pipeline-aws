@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail 
 
 cat <<EOF > vars.yml
 access_key_id: ${ACCESS_KEY_ID}

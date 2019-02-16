@@ -1,0 +1,115 @@
+
+cert_pem: ${CERT_PEM}
+key_pem: ${KEY_PEM}
+api_hostname: ${API_HOSTNAME}
+availability_zone_names: ${AVAILABILITY_ZONE_NAMES}
+instance_profile_master: ${INSTANCE_PROFILE_MASTER}
+instance_profile_worker: ${INSTANCE_PROFILE_WORKER}
+pks_main_network_name: ${PKS_MAIN_NETWORK_NAME}
+pks_services_network_name: ${PKS_SERVICES_NETWORK_NAME}
+availability_zones: ${AVAILABILITY_ZONES}
+singleton_availability_zone: ${SINGLETON_AVAILABILITY_ZONE}
+---
+
+product-properties:
+  .pivotal-container-service.pks_tls:
+    value:
+      cert_pem: ((cert_pem))
+      private_key_pem: ((key_pem))
+  .properties.pks_api_hostname:
+    value: ((api_hostname))
+  .properties.plan1_selector:
+    value: Plan Active
+  .properties.plan1_selector.active.master_az_placement:
+    value: ((availability_zone_names))
+  .properties.plan1_selector.active.master_vm_type:
+    value: t2.small
+  .properties.plan1_selector.active.worker_az_placement:
+    value: ((availability_zone_names))
+  .properties.plan1_selector.active.worker_vm_type:
+    value: t2.medium
+  .properties.plan1_selector.active.worker_persistent_disk_type:
+    value: "51200"
+  .properties.plan1_selector.active.worker_instances:
+    value: 1
+  .properties.plan1_selector.active.errand_vm_type:
+    value: t2.small
+  .properties.plan1_selector.active.addons_spec:
+    value: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: standard
+        annotations:
+          storageclass.beta.kubernetes.io/is-default-class: "true"
+        labels:
+          kubernetes.io/cluster-service: "true"
+          addonmanager.kubernetes.io/mode: EnsureExists
+      provisioner: kubernetes.io/aws-ebs
+      allowVolumeExpansion: true
+      parameters:
+        type: gp2
+      ---
+  .properties.plan1_selector.active.allow_privileged_containers:
+    value: 1
+  .properties.plan2_selector:
+    value: Plan Active
+  .properties.plan2_selector.active.master_az_placement:
+    value: ((availability_zone_names))
+  .properties.plan2_selector.active.master_vm_type:
+    value: t2.small
+  .properties.plan2_selector.active.worker_az_placement:
+    value: ((availability_zone_names))
+  .properties.plan2_selector.active.worker_vm_type:
+    value: m4.large
+  .properties.plan2_selector.active.worker_persistent_disk_type:
+    value: "102400"
+  .properties.plan2_selector.active.worker_instances:
+    value: 3
+  .properties.plan2_selector.active.errand_vm_type:
+    value: t2.small
+  .properties.plan2_selector.active.addons_spec:
+    value: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: standard
+        annotations:
+          storageclass.beta.kubernetes.io/is-default-class: "true"
+        labels:
+          kubernetes.io/cluster-service: "true"
+          addonmanager.kubernetes.io/mode: EnsureExists
+      provisioner: kubernetes.io/aws-ebs
+      allowVolumeExpansion: true
+      parameters:
+        type: gp2
+      ---
+  .properties.plan2_selector.active.allow_privileged_containers:
+    value: 1
+  .properties.plan3_selector:
+    value: Plan Inactive
+  .properties.cloud_provider:
+    value: AWS
+  .properties.cloud_provider.aws.iam_instance_profile_master:
+    value: ((instance_profile_master))
+  .properties.cloud_provider.aws.iam_instance_profile_worker:
+    value: ((instance_profile_worker))
+  .properties.telemetry_selector:
+    value: enabled
+  .properties.uaa_oidc:
+    value: true
+network-properties:
+  network:
+    name: ((pks_main_network_name))
+  service_network:
+    name: ((pks_services_network_name))
+  other_availability_zones: ((availability_zones))
+  singleton_availability_zone:
+    name: ((singleton_availability_zone))
+resource-config:
+  pivotal-container-service:
+    instance_type:
+      id: c4.large
+    additional_vm_extensions:
+    - pks-api-lb
+    - pks-api-lb-security-groups
