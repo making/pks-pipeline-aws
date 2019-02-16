@@ -142,13 +142,11 @@ director:
   instance_type:
     id: automatic
   internet_connected: false
-# VM Extensions
 vmextensions-configuration:
 - name: pks-api-lb
 cloud_properties:
   lb_target_groups:
   - ((pks_api_8443))
-  #- ((pks_api_9021))
 - name: pks-api-lb-security-groups
 cloud_properties:
   security_groups:
