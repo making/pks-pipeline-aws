@@ -2,8 +2,10 @@
 set -eo pipefail 
 
 cat <<EOF > vars.yml
-cert_pem: ${CERT_PEM}
-key_pem: ${KEY_PEM}
+cert_pem: |
+${CERT_PEM}
+key_pem: |
+${KEY_PEM}
 api_hostname: ${API_HOSTNAME}
 availability_zone_names: ${AVAILABILITY_ZONE_NAMES}
 instance_profile_master: ${INSTANCE_PROFILE_MASTER}
