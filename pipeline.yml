@@ -12,11 +12,11 @@ resources:
     uri: https://github.com/pivotal-cf/terraforming-aws.git
     # tag_filter: v0.24.0
     branch: master
-- name: utils
+- name: config
   type: git
   source:
-    uri: https://github.com/making/terraforming-aws.git
-    branch: pks-1.3
+    uri: https://github.com/making/pks-pipeline-aws.git
+    branch: master
 - name: terraform-state
   type: s3
   source:
@@ -63,8 +63,7 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: mesosphere/aws-cli
       run:
         path: sh
         args: 
@@ -105,8 +104,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: pivnet-opsmgr
       outputs:
@@ -134,8 +133,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: template
       - name: terraform-state
@@ -178,18 +177,23 @@ jobs:
     - get: pcf-pipelines
   - task: config-opsman
     params:
+      OM_USERNAME: ((ops_mgr_usr))
+      OM_PASSWORD: ((ops_mgr_pwd))
+      OM_DECRYPTION_PASSPHRASE: ((om_decryption_pwd))
+      OM_SKIP_SSL_VALIDATION: true
+      OM_CERT_PEM: ((ops_mgr_cert_pem))
+      OM_PRIVATE_PEM: ((ops_mgr_private_pem))
+      # for pcf-pipeline
       OPS_MGR_USR: ((ops_mgr_usr))
       OPS_MGR_PWD: ((ops_mgr_pwd))
       OM_DECRYPTION_PWD: ((om_decryption_pwd))
-      OPS_MGR_CERT_PEM: ((ops_mgr_cert_pem))
-      OPS_MGR_PRIVATE_PEM: ((ops_mgr_private_pem))
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: pcf-pipelines
@@ -198,33 +202,33 @@ jobs:
         args: 
         - -c
         - |
-          set -euo pipefail
-          wget https://github.com/pivotal-cf/om/releases/download/0.51.0/om-linux
-          install ./om-linux /usr/local/bin/om          
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          echo "OSPMAN: https://$OPSMAN_DOMAIN_OR_IP_ADDRESS"
+          set -euo pipefail        
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          echo "OSPMAN: https://${OM_TARGET}"
+
+          # for pcf-pipelines
+          export OPSMAN_DOMAIN_OR_IP_ADDRESS=${OM_TARGET}
+          ln -s /usr/local/bin/om /usr/local/bin/om-linux
           ./pcf-pipelines/tasks/config-opsman/task.sh
 
           # Configure TLS
-          if [ "${OPS_MGR_CERT_PEM}" != "" ];then
+          if [ "${OM_CERT_PEM}" != "" ];then
             cat <<EOF >> cert.pem
-          ${OPS_MGR_CERT_PEM}
+          ${OM_CERT_PEM}
           EOF
             cat <<EOF >> private.pem
-          ${OPS_MGR_PRIVATE_PEM}
+          ${OM_PRIVATE_PEM}
           EOF
-            export OM_USERNAME=${OPS_MGR_USR}
-            export OM_PASSWORD=${OPS_MGR_PWD}
-            export OM_TARGET=${OPSMAN_DOMAIN_OR_IP_ADDRESS}
-            export OM_SKIP_SSL_VALIDATION=true
             om update-ssl-certificate \
               --certificate-pem="$(cat cert.pem)" \
               --private-key-pem="$(cat private.pem)"
-            echo "Wait 30 sec"
-            sleep 30
+            until $(curl --output /dev/null -k --silent --head --fail https://${OM_TARGET}/setup); do
+              printf '.'
+              sleep 5
+            done
           fi
 
-- name: config-vm-extensions
+- name: config-director
   build_logs_to_retain: 5
   serial_groups: [terraform]
   plan:
@@ -234,108 +238,36 @@ jobs:
       - config-authentication
       trigger: true
     - get: template
-  - task: config-vm-extensions
+    - get: config
+  - task: config-director
     params:
       OM_USERNAME: ((ops_mgr_usr))
       OM_PASSWORD: ((ops_mgr_pwd))
+      OM_SKIP_SSL_VALIDATION: true
+      OM_TRUSTED_CERTS: ((ops_mgr_trusted_certs))
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: template
+      - name: config
       run:
         path: bash
         args: 
         - -c
         - |
           set -euo pipefail
-          wget https://github.com/pivotal-cf/om/releases/download/0.51.0/om-linux
-          install ./om-linux /usr/local/bin/om 
           export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          export OM_SKIP_SSL_VALIDATION=true
-
-          cat <<EOF > vars.yml
-          pks_api_8443: $(cat terraform-state/terraform.tfstate | jq -r '.modules[4].resources["aws_lb_target_group.pks_api_8443"].primary.attributes.name')
-          pks_api_9021: $(cat terraform-state/terraform.tfstate | jq -r '.modules[4].resources["aws_lb_target_group.pks_api_9021"].primary.attributes.name')
-          pks_api_lb_security_group: $(cat terraform-state/terraform.tfstate | jq -r '.modules[4].resources["aws_security_group.pks_api_lb_security_group"].primary.attributes.name')
-          vms_security_group: $(cat terraform-state/terraform.tfstate | jq -r '.modules[2].resources["aws_security_group.vms_security_group"].primary.attributes.name')
-          EOF
-
-          cat <<'EOF' > pks-api-lb.yml
-          vm-extension-config:
-            name: pks-api-lb
-            cloud_properties:
-              lb_target_groups:
-              - ((pks_api_8443))
-              - ((pks_api_9021))
-          EOF
-          cat <<'EOF' > pks-api-lb-security-groups.yml
-          vm-extension-config:
-            name: pks-api-lb-security-groups
-            cloud_properties:
-              security_groups:
-              - ((pks_api_lb_security_group))
-              - ((vms_security_group))
-          EOF
-
-          cat vars.yml
-
-          om create-vm-extension \
-            --config pks-api-lb.yml \
+          export TF_DIR=terraform-state
+          ./config/config/director/create-vars.sh
+          om configure-director \
+            --config ./config/config/director/config.yml \
             --vars-file vars.yml
-          om create-vm-extension \
-            --config pks-api-lb-security-groups.yml \
-            --vars-file vars.yml
-
-- name: config-director
-  build_logs_to_retain: 5
-  serial_groups: [terraform]
-  plan:
-  - aggregate:
-    - get: terraform-state
-      passed:
-      - config-vm-extensions
-      trigger: true
-    - get: template
-    - get: utils
-  - task: config-director
-    params:
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
-      OPS_MGR_TRUSTED_CERTS: ((ops_mgr_trusted_certs))
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
-      inputs:
-      - name: terraform-state
-      - name: template
-      - name: utils
-      run:
-        path: bash
-        args: 
-        - -c
-        - |
-          set -euo pipefail
-          cp /usr/local/bin/om-linux /usr/local/bin/om
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          cd utils
-          cp ../terraform-state/terraform.tfstate ./
-          cat <<EOF > ./om/common.sh
-          export TF_DIR=$(pwd)
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=${OPSMAN_DOMAIN_OR_IP_ADDRESS}
-          export OPS_MGR_USR=${OPS_MGR_USR}
-          export OPS_MGR_PWD=${OPS_MGR_PWD}
-          EOF
-          ./om/configure-director.sh
 
 - name: upload-pks
   build_logs_to_retain: 5
@@ -354,6 +286,7 @@ jobs:
         - "pivotal-container-service-*.pivotal"
   - task: upload-tile
     params:
+      # for pcf-pipeline
       OPSMAN_CLIENT_ID: ""
       OPSMAN_CLIENT_SECRET: ""
       OPS_MGR_USR: ((ops_mgr_usr))
@@ -367,8 +300,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: pcf-pipelines
@@ -379,10 +312,14 @@ jobs:
         - -c
         - |
           set -euo pipefail
+          ln -s /usr/local/bin/om /usr/local/bin/om-linux
+          wget https://github.com/pivotal-cf/pivnet-cli/releases/download/v0.0.55/pivnet-linux-amd64-0.0.55
+          install pivnet-linux-amd64-0.0.55 /usr/local/bin/pivnet-cli
           export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
           ./pcf-pipelines/tasks/upload-product-and-stemcell/task.sh
   - task: stage-tile
     params:
+      # for pcf-pipeline
       OPSMAN_CLIENT_ID: ""
       OPSMAN_CLIENT_SECRET: ""
       OPSMAN_USERNAME: ((ops_mgr_usr))
@@ -392,8 +329,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: pcf-pipelines
@@ -404,6 +341,8 @@ jobs:
         - -c
         - |
           set -euo pipefail
+          apt-get install -y ruby
+          ln -s /usr/local/bin/om /usr/local/bin/om-linux
           export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
           ./pcf-pipelines/tasks/stage-product/task.sh || true
 
@@ -416,7 +355,7 @@ jobs:
       - upload-pks
       trigger: true
     - get: template
-    - get: utils
+    - get: config
     - get: pcf-pipelines
     - get: pks
       passed:
@@ -427,23 +366,23 @@ jobs:
       trigger: true
   - task: config-pks
     params:
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
-      OPSMAN_CLIENT_ID: ""
-      OPSMAN_CLIENT_SECRET: ""
       CERT_PEM: ((ops_mgr_cert_pem))
       KEY_PEM: ((ops_mgr_private_pem))
+      # for pcf-pipeline
+      OM_USERNAME: ((ops_mgr_usr))
+      OM_PASSWORD: ((ops_mgr_pwd))
+      OM_SKIP_SSL_VALIDATION: true
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: template
-      - name: utils
+      - name: config
       - name: pcf-pipelines
       - name: pks
       run:
@@ -451,18 +390,18 @@ jobs:
         args: 
         - -c
         - |
-          set -eo pipefail 
-          cp /usr/local/bin/om-linux /usr/local/bin/om
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          cd utils
-          cp ../terraform-state/terraform.tfstate ./
-          cat <<EOF > ./om/common.sh
-          export TF_DIR=$(pwd)
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=${OPSMAN_DOMAIN_OR_IP_ADDRESS}
-          export OPS_MGR_USR=${OPS_MGR_USR}
-          export OPS_MGR_PWD=${OPS_MGR_PWD}
-          EOF
-          ./om/configure-pks.sh
+          set -eo pipefail
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          export TF_DIR=terraform-state
+          export ADDONS_DIR=`pwd`/config/config/pks/addons
+          ./config/config/pks/create-vars.sh
+          om configure-product \
+            --config ./config/config/pks/config.yml \
+            --vars-file vars.yml
+
+          echo "PKS API: https://${PKS_DOMAIN}:9021"
+          echo "UAA    : https://${PKS_DOMAIN}:8443"
+
 - name: deploy-pks
   build_logs_to_retain: 5
   plan:
@@ -474,6 +413,7 @@ jobs:
     - get: pcf-pipelines
   - task: apply-changes
     params:
+      # for pcf-pipeline
       OPSMAN_USERNAME: ((ops_mgr_usr))
       OPSMAN_PASSWORD: ((ops_mgr_pwd))
       OPSMAN_CLIENT_ID: ""
@@ -483,8 +423,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: pcf-pipelines
@@ -494,6 +434,7 @@ jobs:
         - -c
         - |
           set -euo pipefail
+          ln -s /usr/local/bin/om /usr/local/bin/om-linux
           export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')          
           ./pcf-pipelines/tasks/apply-changes/task.sh
 - name: show-next-instructions
@@ -504,43 +445,31 @@ jobs:
       passed:
       - deploy-pks
       trigger: true
-    - get: template
-    - get: utils
+    - get: config
   - task: show-next-instructions
     params:
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
-      OPSMAN_CLIENT_ID: ""
-      OPSMAN_CLIENT_SECRET: ""
-      PRODUCT_NAME: "cf"
+      OM_USERNAME: ((ops_mgr_usr))
+      OM_PASSWORD: ((ops_mgr_pwd))
+      OM_SKIP_SSL_VALIDATION: true
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
-      - name: template
-      - name: utils
+      - name: config
       run:
         path: bash
         args: 
         - -c
         - |
-          set -eo pipefail 
-          cp /usr/local/bin/om-linux /usr/local/bin/om
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
-          cd utils
-          cp ../terraform-state/terraform.tfstate ./
-          cat <<EOF > ./om/common.sh
-          export TF_DIR=$(pwd)
-          export OPSMAN_DOMAIN_OR_IP_ADDRESS=${OPSMAN_DOMAIN_OR_IP_ADDRESS}
-          export OPS_MGR_USR=${OPS_MGR_USR}
-          export OPS_MGR_PWD=${OPS_MGR_PWD}
-          EOF
-          ./om/show-next-instructions.sh
+          set -eo pipefail
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          export TF_DIR=$(pwd)/terraform-state
+          ./config/config/pks/show-next-instructions.sh
 - name: wipe-env
   build_logs_to_retain: 5
   serial_groups: [terraform]
@@ -564,8 +493,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       - name: pcf-pipelines
@@ -575,6 +504,7 @@ jobs:
         - -c
         - |
           set +e  
+          ln -s /usr/local/bin/om /usr/local/bin/om-linux
           OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
           om-linux \
             --target https://$OPSMAN_DOMAIN_OR_IP_ADDRESS \
@@ -598,8 +528,8 @@ jobs:
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: template
       - name: terraform-state
@@ -626,16 +556,13 @@ jobs:
       passed:
       - config-director
   - task: show-ssh-opsman-script
-    params:
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       run:
@@ -643,10 +570,9 @@ jobs:
         args: 
         - -c
         - |
-          set -e
-          cp /usr/local/bin/om-linux /usr/local/bin/om
+          set -eo pipefail
           cp terraform-state/terraform.tfstate ./
-          OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
           OPS_MANAGER_SSH_PRIVATE_KEY=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_ssh_private_key.value')
           
           cat <<EOF
@@ -655,7 +581,7 @@ jobs:
           ${OPS_MANAGER_SSH_PRIVATE_KEY}
           KEY
           chmod 600 opsman.pem
-          ssh -i opsman.pem -o "StrictHostKeyChecking=no" -l ubuntu ${OPSMAN_DOMAIN_OR_IP_ADDRESS}
+          ssh -i opsman.pem -o "StrictHostKeyChecking=no" -l ubuntu ${OM_TARGET}
           EOF
 - name: configure-bosh-cli
   build_logs_to_retain: 5
@@ -666,16 +592,16 @@ jobs:
       - config-pks
   - task: configure-bosh-cli
     params:
-      PIVNET_API_TOKEN: ((pivnet_api_token))
-      OPS_MGR_USR: ((ops_mgr_usr))
-      OPS_MGR_PWD: ((ops_mgr_pwd))
+      OM_USERNAME: ((ops_mgr_usr))
+      OM_PASSWORD: ((ops_mgr_pwd))
+      OM_SKIP_SSL_VALIDATION: true
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: pcfnorm/rootfs
-          tag: 1.0.28
+          repository: cfinfrastructure/releng-tools
+          tag: latest
       inputs:
       - name: terraform-state
       run:
@@ -683,37 +609,18 @@ jobs:
         args: 
         - -c
         - |
-          set -e
-          cp /usr/local/bin/om-linux /usr/local/bin/om
+          set -eo pipefail
           cp terraform-state/terraform.tfstate ./
-          OPSMAN_DOMAIN_OR_IP_ADDRESS=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
+          export OM_TARGET=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_dns.value')
           OPS_MANAGER_SSH_PRIVATE_KEY=$(cat terraform-state/terraform.tfstate | jq -r '.modules[0].outputs.ops_manager_ssh_private_key.value')
           
           cat <<EOF > opsman.pem
           ${OPS_MANAGER_SSH_PRIVATE_KEY}
           EOF
           chmod 400 opsman.pem
-          GUID=$(om \
-                --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
-                --username "$OPS_MGR_USR" \
-                --password "$OPS_MGR_PWD" \
-                --skip-ssl-validation \
-                curl \
-                --silent \
-                --path "/api/v0/staged/products" \
-                -x GET \
-                | jq -r '.[] | select(.type == "p-bosh") | .guid')
-          BOSH_CLI=$(om \
-                --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
-                --username "$OPS_MGR_USR" \
-                --password "$OPS_MGR_PWD" \
-                --skip-ssl-validation \
-                curl \
-                --silent \
-                --path "/api/v0/deployed/director/credentials/bosh_commandline_credentials" \
-                -x GET \
-                | jq -r '.credential')
+          GUID=$(om curl -s -p "/api/v0/staged/products" | jq -r '.[] | select(.type == "p-bosh") | .guid')
+          BOSH_CLI=$(om curl -s -p "/api/v0/deployed/director/credentials/bosh_commandline_credentials" | jq -r '.credential')
           ssh -q -i opsman.pem \
             -o "StrictHostKeyChecking=no" \
-            ubuntu@${OPSMAN_DOMAIN_OR_IP_ADDRESS} "echo $BOSH_CLI | sed 's/ /\n/g' | sed 's/^/export /g' | sed '/bosh/d' | sudo tee /etc/profile.d/bosh.sh" > /dev/null
+            ubuntu@${OM_TARGET} "echo $BOSH_CLI | sed 's/ /\n/g' | sed 's/^/export /g' | sed '/bosh/d' | sudo tee /etc/profile.d/bosh.sh" > /dev/null
 
