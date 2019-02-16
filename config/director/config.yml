@@ -144,11 +144,12 @@ director:
   internet_connected: false
 vmextensions-configuration:
 - name: pks-api-lb
-cloud_properties:
-  lb_target_groups:
-  - ((pks_api_8443))
+  cloud_properties:
+    lb_target_groups:
+    - ((pks_api_8443))
+    - ((pks_api_9021))
 - name: pks-api-lb-security-groups
-cloud_properties:
-  security_groups:
-  - ((pks_api_lb_security_group))
-  - ((vms_security_group))
+  cloud_properties:
+    security_groups:
+    - ((pks_api_lb_security_group))
+    - ((vms_security_group))
