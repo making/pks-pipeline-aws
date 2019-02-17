@@ -14,23 +14,26 @@ cat <<EOF
 PKS_API_URL=${PKS_API_URL}
 UAA_URL=${UAA_URL}
 ADMIN_SECRET=${ADMIN_SECRET}
+ADMIN_PASSWORD=${ADMIN_PASSWORD}
 PKS_USER=demo@example.com
 PKS_PASSWORD=demodemo1234
 CLUSTER_NAME=pks-demo1
 The following instruction shows how to create a cluster named "\${CLUSTER_NAME}"
 
-### Grant Cluster Access to a User          
+### Log in to PKS as UAA admin
+
+pks login -k -a \${PKS_API_URL} -u admin -p \${ADMIN_PASSWORD}
+
+### Log in to PKS as a pks user
+
 uaac target \${UAA_URL} --skip-ssl-validation
 uaac token client get admin -s \${ADMIN_SECRET}
 uaac user add \${PKS_USER} --emails \${PKS_USER} -p \${PKS_PASSWORD}
 uaac member add pks.clusters.admin \${PKS_USER}
 
-### Log in to PKS as UAA admin
-pks login -k -a \${PKS_API_URL} -u admin -p \${ADMIN_PASSWORD}
-
-### Log in to PKS as a pks user
 pks login -k -a \${PKS_API_URL} -u \${PKS_USER} -p \${PKS_PASSWORD}
 
 ### Create a PKS cluster
+
 see https://github.com/making/pks-pipeline-aws/terraform
 EOF
