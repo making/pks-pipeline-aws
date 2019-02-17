@@ -69,7 +69,7 @@ network-properties:
 resource-config:
   pivotal-container-service:
     instance_type:
-      id: c4.large
+      id: t2.medium
     additional_vm_extensions:
     - pks-api-lb
     - pks-api-lb-security-groups
