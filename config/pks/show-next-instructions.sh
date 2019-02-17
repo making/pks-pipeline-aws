@@ -16,7 +16,7 @@ ADMIN_SECRET=${ADMIN_SECRET}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 PKS_USER=demo@example.com
 PKS_PASSWORD=demodemo1234
-CLUSTER_NAME=pks-demo1
+CLUSTER_NAME=demo1
 
 The following instruction shows how to create a cluster named "\${CLUSTER_NAME}"
 
