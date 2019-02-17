@@ -17,6 +17,7 @@ ADMIN_PASSWORD=${ADMIN_PASSWORD}
 PKS_USER=demo@example.com
 PKS_PASSWORD=demodemo1234
 CLUSTER_NAME=pks-demo1
+
 The following instruction shows how to create a cluster named "\${CLUSTER_NAME}"
 
 ### Log in to PKS as UAA admin
@@ -34,5 +35,5 @@ pks login -k -a \${PKS_API_URL} -u \${PKS_USER} -p \${PKS_PASSWORD}
 
 ### Create a PKS cluster
 
-see https://github.com/making/pks-pipeline-aws/terraform
+see https://github.com/making/pks-pipeline-aws/tree/master/terraform
 EOF
