@@ -1,15 +1,18 @@
 ```
+CLUSTER_NAME=demo1
+
 cp terraform.tfvars.sample terraform.tfvars
+
 terraform init
-terraform plan -var cluster_name=foo -out plan
-terraform apply plan
+terraform plan -var cluster_name=${CLUSTER_NAME} -state ${CLUSTER_NAME}.tfstate -out ${CLUSTER_NAME}.tfplan
+terraform apply -state-out ${CLUSTER_NAME}.tfstate ${CLUSTER_NAME}.tfplan
 
-pks create-cluster $(terraform output cluster_name) -e $(terraform output k8s_master_lb_dns_name) -p small -n 1 --wait
+pks create-cluster ${CLUSTER_NAME} -e $(terraform output -state ${CLUSTER_NAME}.tfstate k8s_master_lb_dns_name) -p small -n 1 --wait
 
-terraform plan -var cluster_name=foo -var instance_ids='["i-xxxxxxxxxxxxxxxxx"]' -out plan
-terraform apply plan
+terraform plan -var cluster_name=${CLUSTER_NAME} -var instance_ids='["Replacae with istance ids of Master vms"]' -state ${CLUSTER_NAME}.tfstate -out ${CLUSTER_NAME}.tfplan
+terraform apply -state-out ${CLUSTER_NAME}.tfstate ${CLUSTER_NAME}.tfplan
 
-pks get-credentials $(terraform output cluster_name)
+pks get-credentials ${CLUSTER_NAME}
 
 kubectl cluster-info
 kubectl get pod --all-namespaces
@@ -23,5 +26,5 @@ kubectl delete service hello-pks
 kubectl delete deployment hello-pks
 
 
-terraform destroy -force -var cluster_name=foo
+terraform destroy -force -var cluster_name=${CLUSTER_NAME} -state ${CLUSTER_NAME}.tfstate
 ```
