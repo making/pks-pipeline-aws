@@ -10,11 +10,7 @@ export AVAILABILITY_ZONES=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].o
 export AVAILABILITY_ZONE_NAMES=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.azs.value' | tr -d '\n' | tr -d '"')
 if [ "${CERT_PEM}" == "" ];then
 	WILDCARD_DOMAIN=`echo ${OPSMAN_DOMAIN_OR_IP_ADDRESS} | sed 's/pcf/*/g'`
-	CERTIFICATES=`om --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
-	   --username "$OPS_MGR_USR" \
-	   --password "$OPS_MGR_PWD" \
-	   --skip-ssl-validation\
-	   generate-certificate -d ${WILDCARD_DOMAIN}`
+	CERTIFICATES=`om generate-certificate -d ${WILDCARD_DOMAIN}`
 	CERT_PEM=`echo $CERTIFICATES | jq -r '.certificate'`
 	KEY_PEM=`echo $CERTIFICATES | jq -r '.key'`
 fi
