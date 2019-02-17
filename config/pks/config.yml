@@ -21,7 +21,7 @@ product-properties:
   .properties.plan1_selector.active.worker_instances:
     value: 1
   .properties.plan1_selector.active.errand_vm_type:
-    value: t2.small
+    value: t2.micro
   .properties.plan1_selector.active.addons_spec:
     value: ((addons_spec))
   .properties.plan1_selector.active.allow_privileged_containers:
@@ -41,7 +41,7 @@ product-properties:
   .properties.plan2_selector.active.worker_instances:
     value: 3
   .properties.plan2_selector.active.errand_vm_type:
-    value: t2.small
+    value: t2.micro
   .properties.plan2_selector.active.addons_spec:
     value: ((addons_spec))
   .properties.plan2_selector.active.allow_privileged_containers:
