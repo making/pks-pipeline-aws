@@ -3,6 +3,7 @@ set -eo pipefail
 
 GUID=$(om curl -s -p "/api/v0/staged/products" | jq -r '.[] | select(.type == "pivotal-container-service") | .guid')
 ADMIN_SECRET=$(om curl -s -p "/api/v0/deployed/products/${GUID}/credentials/.properties.pks_uaa_management_admin_client" | jq -r '.credential.value.secret')
+ADMIN_PASSWORD=$(om curl -s -p "/api/v0/deployed/products/${GUID}/credentials/.properties.properties.uaa_admin_password" | jq -r '.credential.value.secret')
 
 PKS_DOMAIN=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_api_endpoint.value')
 
@@ -24,7 +25,10 @@ uaac token client get admin -s \${ADMIN_SECRET}
 uaac user add \${PKS_USER} --emails \${PKS_USER} -p \${PKS_PASSWORD}
 uaac member add pks.clusters.admin \${PKS_USER}
 
-### Log in to PKS
+### Log in to PKS as UAA admin
+pks login -k -a \${PKS_API_URL} -u admin -p \${ADMIN_PASSWORD}
+
+### Log in to PKS as a pks user
 pks login -k -a \${PKS_API_URL} -u \${PKS_USER} -p \${PKS_PASSWORD}
 
 ### Create a PKS cluster
