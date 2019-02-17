@@ -3,7 +3,7 @@ set -eo pipefail
 
 GUID=$(om curl -s -p "/api/v0/staged/products" | jq -r '.[] | select(.type == "pivotal-container-service") | .guid')
 ADMIN_SECRET=$(om curl -s -p "/api/v0/deployed/products/${GUID}/credentials/.properties.pks_uaa_management_admin_client" | jq -r '.credential.value.secret')
-ADMIN_PASSWORD=$(om curl -s -p "/api/v0/deployed/products/${GUID}/credentials/.properties.properties.uaa_admin_password" | jq -r '.credential.value.secret')
+ADMIN_PASSWORD=$(om curl -s -p "/api/v0/deployed/products/${GUID}/credentials/.properties.uaa_admin_password" | jq -r '.credential.value.secret')
 
 PKS_DOMAIN=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.pks_api_endpoint.value')
 
