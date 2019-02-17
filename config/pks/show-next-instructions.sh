@@ -36,4 +36,13 @@ pks login -k -a \${PKS_API_URL} -u \${PKS_USER} -p \${PKS_PASSWORD}
 ### Create a PKS cluster
 
 see https://github.com/making/pks-pipeline-aws/tree/master/terraform
+
+Use the following terraform.tfvars
+
+access_key="xxxxxxxxxxxxxxx"
+secret_key="xxxxxxxxxxxxxxx"
+region=$(cat $TF_DIR/terraform.tfstate | jq '.modules[0].outputs.region.value')
+vpc_id=$(cat $TF_DIR/terraform.tfstate | jq '.modules[0].outputs.vpc_id.value')
+elb_subnet_ids=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.public_subnets.value' | tr -d '\n')
+
 EOF
