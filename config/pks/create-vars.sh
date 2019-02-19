@@ -9,7 +9,7 @@ export SINGLETON_AVAILABILITY_ZONE=$(cat $TF_DIR/terraform.tfstate | jq -r '.mod
 export AVAILABILITY_ZONES=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.azs.value | map({name: .})' | tr -d '\n' | tr -d '"')
 export AVAILABILITY_ZONE_NAMES=$(cat $TF_DIR/terraform.tfstate | jq -r '.modules[0].outputs.azs.value' | tr -d '\n' | tr -d '"')
 if [ "${CERT_PEM}" == "" ];then
-	WILDCARD_DOMAIN=`echo ${OM_TARGET} | sed 's/pcf/*/g'`
+	WILDCARD_DOMAIN=`echo ${OM_TARGET} | sed 's/pcf/*.pks/g'`
 	CERTIFICATES=`om generate-certificate -d ${WILDCARD_DOMAIN}`
 	CERT_PEM=`echo $CERTIFICATES | jq -r '.certificate'`
 	KEY_PEM=`echo $CERTIFICATES | jq -r '.key'`
