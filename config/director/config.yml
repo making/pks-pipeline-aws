@@ -102,10 +102,6 @@ properties-configuration:
     resurrector_enabled: true
     retry_bosh_deploys: false
     s3_blobstore_options:
-      bucket_name: pks-ops-manager-bucket-68043
-      endpoint: https://s3-ap-northeast-1.amazonaws.com
-      region: ap-northeast-1
-      signature_version: "4"
       endpoint: https://s3-((region)).amazonaws.com
       bucket_name: ((ops_manager_bucket))
       access_key: ((access_key_id))
