@@ -10,6 +10,16 @@ terraform apply -state-out ${CLUSTER_NAME}.tfstate ${CLUSTER_NAME}.tfplan
 pks create-cluster ${CLUSTER_NAME} -e $(terraform output -state ${CLUSTER_NAME}.tfstate k8s_master_lb_dns_name) -p small -n 1 --wait
 
 terraform plan -var cluster_name=${CLUSTER_NAME} -var instance_ids='["Replacae with istance ids of Master vms"]' -state ${CLUSTER_NAME}.tfstate -out ${CLUSTER_NAME}.tfplan
+
+
+## you can retrieve istance ids of Master vms as folllows
+MASTER_IDS=$(aws ec2 describe-instances \
+	--filters "Name=tag:deployment,Values=service-instance_$(pks cluster ${CLUSTER_NAME} --json | jq -r .uuid)"  "Name=tag:instance_group,Values=master" \
+	--query "Reservations[].Instances[].InstanceId" \
+	--output json | tr -d '\n' | sed -e 's/\[//' -e 's/\]//')
+terraform plan -var cluster_name=${CLUSTER_NAME} -var instance_ids="[${MASTER_IDS}]" -state ${CLUSTER_NAME}.tfstate -out ${CLUSTER_NAME}.tfplan
+##
+
 terraform apply -state-out ${CLUSTER_NAME}.tfstate ${CLUSTER_NAME}.tfplan
 
 pks get-credentials ${CLUSTER_NAME}
